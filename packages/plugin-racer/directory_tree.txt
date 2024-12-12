@@ -1,0 +1,1590 @@
+Directory Tree Outline:
+/
+    index.ts
+actions/
+    none.ts
+    extendedRacing.ts
+    index.ts
+    racing.ts
+evaluators/
+    goal.ts
+    fact.ts
+    index.ts
+providers/
+    time.ts
+    index.ts
+    racing.ts
+    facts.ts
+
+Detailed File Content:
+/
+    index.ts
+        // src/index.ts
+        import { Plugin } from "@ai16z/eliza";
+        import { noneAction } from "./actions/none.js";
+        import { getRaceResultsAction, getDriverStandingsAction, getNextRaceAction } from "./actions/racing.js";
+        import { getMeetsForDateAction, getMeetDetailsAction, getDataForDateRangeAction } from "./actions/extendedRacing.js";
+        import { factEvaluator } from "./evaluators/fact.js";
+        import { goalEvaluator } from "./evaluators/goal.js";
+        import { timeProvider } from "./providers/time.js";
+        import { factsProvider } from "./providers/facts.js";
+        import { racingAPIProvider } from "./providers/racing.js";
+        
+        /**
+         * The racerPlugin integrates all actions, evaluators, and providers into a cohesive whole.
+         * The agent can now respond to user requests about racing data, update its internal goal/fact state,
+         * and leverage time/facts providers.
+         */
+        const racerPlugin: Plugin = {
+          name: "racer",
+          description: "Provides racing data actions and evaluators along with basic actions.",
+          actions: [
+            noneAction,
+            getRaceResultsAction,
+            getDriverStandingsAction,
+            getNextRaceAction,
+            getMeetsForDateAction,
+            getMeetDetailsAction,
+            getDataForDateRangeAction
+          ],
+          evaluators: [
+            factEvaluator,
+            goalEvaluator
+          ],
+          providers: [
+            timeProvider,
+            factsProvider,
+            racingAPIProvider,
+          ]
+        };
+        
+        export { racerPlugin };
+        export default racerPlugin;
+actions/
+    none.ts
+        import {
+            ActionExample,
+            IAgentRuntime,
+            Memory,
+            type Action,
+        } from "@ai16z/eliza";
+        
+        export const noneAction: Action = {
+            name: "NONE",
+            similes: [
+                "NO_ACTION",
+                "NO_RESPONSE",
+                "NO_REACTION",
+                "RESPONSE",
+                "REPLY",
+                "DEFAULT",
+            ],
+            validate: async (_runtime: IAgentRuntime, _message: Memory) => {
+                return true;
+            },
+            description:
+                "Respond but perform no additional action. This is the default if the agent is speaking and not doing anything additional.",
+            handler: async (
+                _runtime: IAgentRuntime,
+                _message: Memory
+            ): Promise<boolean> => {
+                return true;
+            },
+            examples: [
+                [
+                    {
+                        user: "{{user1}}",
+                        content: { text: "Hey whats up" },
+                    },
+                    {
+                        user: "{{user2}}",
+                        content: { text: "oh hey", action: "NONE" },
+                    },
+                ],
+        
+                [
+                    {
+                        user: "{{user1}}",
+                        content: {
+                            text: "did u see some faster whisper just came out",
+                        },
+                    },
+                    {
+                        user: "{{user2}}",
+                        content: {
+                            text: "yeah but its a pain to get into node.js",
+                            action: "NONE",
+                        },
+                    },
+                ],
+                [
+                    {
+                        user: "{{user1}}",
+                        content: {
+                            text: "the things that were funny 6 months ago are very cringe now",
+                            action: "NONE",
+                        },
+                    },
+                    {
+                        user: "{{user2}}",
+                        content: {
+                            text: "lol true",
+                            action: "NONE",
+                        },
+                    },
+                    {
+                        user: "{{user1}}",
+                        content: { text: "too real haha", action: "NONE" },
+                    },
+                ],
+                [
+                    {
+                        user: "{{user1}}",
+                        content: { text: "gotta run", action: "NONE" },
+                    },
+                    {
+                        user: "{{user2}}",
+                        content: { text: "Okay, ttyl", action: "NONE" },
+                    },
+                    {
+                        user: "{{user1}}",
+                        content: { text: "", action: "IGNORE" },
+                    },
+                ],
+        
+                [
+                    {
+                        user: "{{user1}}",
+                        content: { text: "heyyyyyy", action: "NONE" },
+                    },
+                    {
+                        user: "{{user2}}",
+                        content: { text: "whats up long time no see" },
+                    },
+                    {
+                        user: "{{user1}}",
+                        content: {
+                            text: "chillin man. playing lots of fortnite. what about you",
+                            action: "NONE",
+                        },
+                    },
+                ],
+        
+                [
+                    {
+                        user: "{{user1}}",
+                        content: { text: "u think aliens are real", action: "NONE" },
+                    },
+                    {
+                        user: "{{user2}}",
+                        content: { text: "ya obviously", action: "NONE" },
+                    },
+                ],
+        
+                [
+                    {
+                        user: "{{user1}}",
+                        content: { text: "drop a joke on me", action: "NONE" },
+                    },
+                    {
+                        user: "{{user2}}",
+                        content: {
+                            text: "why dont scientists trust atoms cuz they make up everything lmao",
+                            action: "NONE",
+                        },
+                    },
+                    {
+                        user: "{{user1}}",
+                        content: { text: "haha good one", action: "NONE" },
+                    },
+                ],
+        
+                [
+                    {
+                        user: "{{user1}}",
+                        content: {
+                            text: "hows the weather where ur at",
+                            action: "NONE",
+                        },
+                    },
+                    {
+                        user: "{{user2}}",
+                        content: { text: "beautiful all week", action: "NONE" },
+                    },
+                ],
+            ] as ActionExample[][],
+        } as Action;
+    extendedRacing.ts
+        // src/actions/extendedRacing.ts
+        import { IAgentRuntime, Action, HandlerCallback, Memory, ActionExample } from "@ai16z/eliza";
+        import { getMeetsForDate, getMeetEntries, getMeetResults, getDataForDateRange } from "../providers/racing.js";
+        import { parseISO, format } from "date-fns";
+        
+        /**
+         * Utility: Parse a date mentioned by the user. This could be improved with NLP,
+         * but here we assume the user gives a date in YYYY-MM-DD format, or relative terms like "yesterday".
+         */
+        function parseUserDate(input: string): string | null {
+          const lower = input.toLowerCase();
+          // simple examples of relative parsing:
+          if (lower.includes("yesterday")) {
+            const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            return format(yesterday, "yyyy-MM-dd");
+          } else if (/\d{4}-\d{2}-\d{2}/.test(lower)) {
+            // direct date format: 2023-07-15
+            const match = lower.match(/\d{4}-\d{2}-\d{2}/);
+            if (match) return match[0];
+          }
+          // If no recognized date pattern, return null:
+          return null;
+        }
+        
+        /**
+         * GET_MEETS_FOR_DATE Action:
+         * User might say: "Show me all the racing meets for 2023-07-15" or "Show me all meets for yesterday."
+         * We parse the date, then fetch meets, and present them.
+         */
+        export const getMeetsForDateAction: Action = {
+          name: "GET_MEETS_FOR_DATE",
+          description: "Fetches all racing meets for a given date.",
+          similes: ["GET_MEETS", "SHOW_MEETS_FOR_DATE"],
+          validate: async (_runtime: IAgentRuntime, message: Memory) => {
+            const text = message.content.text.toLowerCase();
+            return text.includes("meets") && (text.includes("yesterday") || /\d{4}-\d{2}-\d{2}/.test(text));
+          },
+          handler: async (runtime: IAgentRuntime, message: Memory, _state, _options, callback: HandlerCallback) => {
+            const text = message.content.text;
+            const dateStr = parseUserDate(text);
+            if (!dateStr) {
+              return callback({ text: "I’m sorry, I couldn’t understand the date you mentioned." }, []);
+            }
+        
+            // Fetch meets for that date
+            const meets = await getMeetsForDate(runtime, dateStr);
+            if (meets.length === 0) {
+              return callback({ text: `No meets found for ${dateStr}.` }, []);
+            }
+        
+            let response = `Meets for ${dateStr}:\n`;
+            meets.forEach(meet => {
+              response += `- Meet ID: ${meet.meet_id}, Date: ${meet.date}\n`;
+            });
+        
+            callback({ text: response.trim() }, []);
+          },
+          examples: [
+            [
+              {
+                user: "{{user1}}",
+                content: { text: "Show me all the racing meets for yesterday." }
+              },
+              {
+                user: "Ava",
+                content: {
+                  text: "Sure, retrieving meets for yesterday...",
+                  action: "GET_MEETS_FOR_DATE"
+                }
+              }
+            ],
+            [
+              {
+                user: "{{user1}}",
+                content: { text: "What meets happened on 2023-07-15?" }
+              },
+              {
+                user: "Ava",
+                content: {
+                  text: "Let me check the meets for that date...",
+                  action: "GET_MEETS_FOR_DATE"
+                }
+              }
+            ]
+          ] as ActionExample[][]
+        };
+        
+        /**
+         * GET_MEET_DETAILS Action:
+         * User might say: "Show me entries and results for meet_id XYZ"
+         * We'll fetch entries and results using our provider functions.
+         */
+        export const getMeetDetailsAction: Action = {
+          name: "GET_MEET_DETAILS",
+          description: "Fetches entries and results for a given meet_id.",
+          similes: ["MEET_DETAILS", "SHOW_MEET_INFO"],
+          validate: async (_runtime: IAgentRuntime, message: Memory) => {
+            // Simple validation: check if user mentions 'meet_id'
+            return message.content.text.toLowerCase().includes("meet_id");
+          },
+          handler: async (runtime: IAgentRuntime, message: Memory, _state, _options, callback: HandlerCallback) => {
+            const text = message.content.text;
+            // Extract meet_id from text. Assuming user says something like: "meet_id 12345"
+            const match = text.match(/meet_id\s+(\S+)/i);
+            if (!match) {
+              return callback({ text: "I’m sorry, I couldn’t find a meet_id in your request." }, []);
+            }
+            const meet_id = match[1];
+        
+            const entries = await getMeetEntries(runtime, meet_id);
+            const results = await getMeetResults(runtime, meet_id);
+        
+            let response = `Details for meet_id ${meet_id}:\n`;
+        
+            if (entries && Array.isArray(entries.entries)) {
+              response += `Entries:\n`;
+              entries.entries.forEach((entry: any, i: number) => {
+                response += `${i + 1}. ${entry.horse_name} - ${entry.jockey}\n`;
+              });
+            } else {
+              response += `No entries found.\n`;
+            }
+        
+            if (results && Array.isArray(results.results)) {
+              response += `\nResults:\n`;
+              results.results.forEach((res: any, i: number) => {
+                response += `${i + 1}. ${res.horse_name} finished at position ${res.position}\n`;
+              });
+            } else {
+              response += `No results found.\n`;
+            }
+        
+            callback({ text: response.trim() }, []);
+          },
+          examples: [
+            [
+              {
+                user: "{{user1}}",
+                content: { text: "Show me entries and results for meet_id A123" }
+              },
+              {
+                user: "Ava",
+                content: { text: "Fetching meet details...", action: "GET_MEET_DETAILS" }
+              }
+            ]
+          ] as ActionExample[][]
+        };
+        
+        /**
+         * GET_DATA_FOR_DATE_RANGE Action:
+         * Fetch data for a range of dates (e.g., from 2023-07-01 to 2023-07-07),
+         * summarizing how many meets were found.
+         * This might be useful if the user says: "Summarize all meets from last week."
+         */
+        export const getDataForDateRangeAction: Action = {
+          name: "GET_DATA_FOR_DATE_RANGE",
+          description: "Fetches and summarizes data for a given date range.",
+          similes: ["GET_DATA_RANGE", "SHOW_DATA_RANGE"],
+          validate: async (_runtime: IAgentRuntime, message: Memory) => {
+            const text = message.content.text.toLowerCase();
+            // Validate if user mentions something like 'from 2023-07-01 to 2023-07-05'
+            return /from\s+\d{4}-\d{2}-\d{2}\s+to\s+\d{4}-\d{2}-\d{2}/.test(text);
+          },
+          handler: async (runtime: IAgentRuntime, message: Memory, _state, _options, callback: HandlerCallback) => {
+            const text = message.content.text;
+            const match = text.match(/from\s+(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})/);
+            if (!match) {
+              return callback({ text: "I’m sorry, I couldn’t parse the date range." }, []);
+            }
+        
+            const start = match[1];
+            const end = match[2];
+        
+            // Using the provider function getDataForDateRange,
+            // currently it logs and fetches meets/entries/results for each day.
+            // We can store the data or just trust the logs. For now, let's just confirm we did it.
+            await getDataForDateRange(runtime, start, end);
+        
+            callback({ text: `Fetched and processed data for the range ${start} to ${end}. Check the logs for details.` }, []);
+          },
+          examples: [
+            [
+              {
+                user: "{{user1}}",
+                content: { text: "Summarize data from 2023-07-01 to 2023-07-07." }
+              },
+              {
+                user: "Ava",
+                content: {
+                  text: "Alright, fetching data for that date range...",
+                  action: "GET_DATA_FOR_DATE_RANGE"
+                }
+              }
+            ]
+          ] as ActionExample[][]
+        };
+    index.ts
+        export * from "./none.ts";
+        export * from "./racing.ts";
+    racing.ts
+        import { IAgentRuntime, Action, HandlerCallback, Memory, ActionExample } from "@ai16z/eliza";
+        import { getRaceResults, getDriverStandings, getNextRace } from "../providers/racing.ts";
+        
+        /**
+         * Parse the racing series from user queries, defaulting to "f1" if no recognizable series found.
+         */
+        function parseSeriesFromMessage(text: string): string {
+          console.log(`parseSeriesFromMessage called with text: "${text}"`);
+          const lower = text.toLowerCase();
+          let series = "f1"; // default
+        
+          if (lower.includes("f1") || lower.includes("formula 1")) {
+            series = "f1";
+          } else if (lower.includes("nascar")) {
+            series = "nascar";
+          } else if (lower.includes("motogp")) {
+            series = "motogp";
+          } else if (lower.includes("indycar")) {
+            series = "indycar";
+          } else if (lower.includes("wec")) {
+            series = "wec";
+          }
+        
+          console.log(`Parsed series: "${series}"`);
+          return series;
+        }
+        
+        /**
+         * Parse race identifier. If user mentions "last race" or "latest race", return "last".
+         * Could be extended for specific event parsing if needed.
+         */
+        function parseRaceIdFromMessage(text: string): string {
+          console.log(`parseRaceIdFromMessage called with text: "${text}"`);
+          const lower = text.toLowerCase();
+          let raceId = "last"; // default
+        
+          if (lower.includes("last race") || lower.includes("latest race")) {
+            raceId = "last";
+          }
+        
+          console.log(`Parsed raceId: "${raceId}"`);
+          return raceId;
+        }
+        
+        export const getRaceResultsAction: Action = {
+          name: "GET_RACE_RESULTS",
+          similes: ["RACE_RESULTS", "LATEST_RESULTS", "WHO_WON"],
+          description: "Fetches and returns race results for a requested series and race identifier.",
+          validate: async (_runtime: IAgentRuntime, message: Memory) => {
+            const isValid = /race results|who won the last race|latest race results/i.test(message.content.text);
+            console.log(`Validating GET_RACE_RESULTS with message: "${message.content.text}". Valid: ${isValid}`);
+            return isValid;
+          },
+          handler: async (runtime: IAgentRuntime, message: Memory, _state, _options, callback: HandlerCallback) => {
+            console.log(`Handler for GET_RACE_RESULTS invoked with message: "${message.content.text}"`);
+            const userText = message.content.text;
+            const series = parseSeriesFromMessage(userText);
+            const raceId = parseRaceIdFromMessage(userText);
+        
+            console.log(`Fetching race results for series: "${series}", raceId: "${raceId}"`);
+            try {
+              const results = await getRaceResults(runtime, series, raceId);
+              console.log(`Received race results:`, results);
+        
+              if (results.length === 0) {
+                console.log(`No race results found for series: "${series}", raceId: "${raceId}"`);
+                return callback({ text: "I’m sorry, I can’t find the race results right now." }, []);
+              }
+        
+              let formatted = `Here are the ${series.toUpperCase()} ${raceId === "last" ? "most recent" : raceId} race results:\n`;
+              for (const r of results) {
+                formatted += `${r.position}. ${r.driver} (${r.team})\n`;
+              }
+        
+              console.log(`Formatted race results: "${formatted.trim()}"`);
+              callback({ text: formatted.trim() }, []);
+            } catch (error) {
+              console.error(`Error fetching race results:`, error);
+              callback({ text: "There was an error retrieving the race results. Please try again later." }, []);
+            }
+          },
+          examples: [
+            [
+              {
+                user: "{{user1}}",
+                content: { text: "Who won the last F1 race?" }
+              },
+              {
+                user: "RacerBot",
+                content: {
+                  text: "Let me check the latest F1 results for you...",
+                  action: "GET_RACE_RESULTS"
+                }
+              }
+            ],
+            [
+              {
+                user: "{{user1}}",
+                content: { text: "Show me the race results for last week's NASCAR event." }
+              },
+              {
+                user: "RacerBot",
+                content: {
+                  text: "Sure, pulling up last week’s NASCAR results...",
+                  action: "GET_RACE_RESULTS"
+                }
+              }
+            ]
+          ] as ActionExample[][]
+        };
+        
+        export const getDriverStandingsAction: Action = {
+          name: "GET_DRIVER_STANDINGS",
+          similes: ["CURRENT_STANDINGS", "DRIVER_STANDINGS"],
+          description: "Provides current driver standings for a specified racing series.",
+          validate: async (_runtime: IAgentRuntime, message: Memory) => {
+            const isValid = /driver standings|current standings/i.test(message.content.text);
+            console.log(`Validating GET_DRIVER_STANDINGS with message: "${message.content.text}". Valid: ${isValid}`);
+            return isValid;
+          },
+          handler: async (runtime: IAgentRuntime, message: Memory, _state, _options, callback: HandlerCallback) => {
+            console.log(`Handler for GET_DRIVER_STANDINGS invoked with message: "${message.content.text}"`);
+            const series = parseSeriesFromMessage(message.content.text);
+            console.log(`Fetching driver standings for series: "${series}"`);
+        
+            try {
+              const standings = await getDriverStandings(runtime, series);
+              console.log(`Received driver standings:`, standings);
+        
+              if (standings.length === 0) {
+                console.log(`No driver standings found for series: "${series}"`);
+                return callback({ text: "I’m sorry, I can’t retrieve the current standings at the moment." }, []);
+              }
+        
+              let formatted = `Current ${series.toUpperCase()} Driver Standings:\n`;
+              standings.forEach((driver, i) => {
+                formatted += `${i + 1}. ${driver.name} - ${driver.points} points\n`;
+              });
+        
+              console.log(`Formatted driver standings: "${formatted.trim()}"`);
+              callback({ text: formatted.trim() }, []);
+            } catch (error) {
+              console.error(`Error fetching driver standings:`, error);
+              callback({ text: "There was an error retrieving the driver standings. Please try again later." }, []);
+            }
+          },
+          examples: [
+            [
+              {
+                user: "{{user1}}",
+                content: { text: "What are the current F1 driver standings?" }
+              },
+              {
+                user: "RacerBot",
+                content: {
+                  text: "Fetching the current F1 standings now...",
+                  action: "GET_DRIVER_STANDINGS"
+                }
+              }
+            ],
+            [
+              {
+                user: "{{user1}}",
+                content: { text: "Show me who is leading in NASCAR right now." }
+              },
+              {
+                user: "RacerBot",
+                content: {
+                  text: "Let me get the current NASCAR driver standings for you...",
+                  action: "GET_DRIVER_STANDINGS"
+                }
+              }
+            ]
+          ] as ActionExample[][]
+        };
+        
+        export const getNextRaceAction: Action = {
+          name: "GET_NEXT_RACE",
+          similes: ["UPCOMING_RACE", "NEXT_RACE"],
+          description: "Provides details of the upcoming race in the specified racing series.",
+          validate: async (_runtime: IAgentRuntime, message: Memory) => {
+            const isValid = /next race|upcoming race/i.test(message.content.text);
+            console.log(`Validating GET_NEXT_RACE with message: "${message.content.text}". Valid: ${isValid}`);
+            return isValid;
+          },
+          handler: async (runtime: IAgentRuntime, message: Memory, _state, _options, callback: HandlerCallback) => {
+            console.log(`Handler for GET_NEXT_RACE invoked with message: "${message.content.text}"`);
+            const series = parseSeriesFromMessage(message.content.text);
+            console.log(`Fetching next race for series: "${series}"`);
+        
+            try {
+              const nextRace = await getNextRace(runtime, series);
+              console.log(`Received next race details:`, nextRace);
+        
+              if (!nextRace) {
+                console.log(`No upcoming race found for series: "${series}"`);
+                return callback({ text: "I’m sorry, I can’t find the upcoming race details right now." }, []);
+              }
+        
+              const info = `The next ${series.toUpperCase()} race is the ${nextRace.name} on ${nextRace.date} at ${nextRace.circuit}.`;
+              console.log(`Formatted next race info: "${info}"`);
+              callback({ text: info }, []);
+            } catch (error) {
+              console.error(`Error fetching next race details:`, error);
+              callback({ text: "There was an error retrieving the next race details. Please try again later." }, []);
+            }
+          },
+          examples: [
+            [
+              {
+                user: "{{user1}}",
+                content: { text: "When is the next MotoGP race?" }
+              },
+              {
+                user: "RacerBot",
+                content: {
+                  text: "Let me check the upcoming MotoGP event details...",
+                  action: "GET_NEXT_RACE"
+                }
+              }
+            ],
+            [
+              {
+                user: "{{user1}}",
+                content: { text: "What’s the next IndyCar race scheduled?" }
+              },
+              {
+                user: "RacerBot",
+                content: {
+                  text: "One moment, I'll find the next IndyCar race information.",
+                  action: "GET_NEXT_RACE"
+                }
+              }
+            ]
+          ] as ActionExample[][]
+        };
+evaluators/
+    goal.ts
+        import { composeContext } from "@ai16z/eliza";
+        import { generateText } from "@ai16z/eliza";
+        import { getGoals } from "@ai16z/eliza";
+        import { parseJsonArrayFromText } from "@ai16z/eliza";
+        import {
+            IAgentRuntime,
+            Memory,
+            ModelClass,
+            Objective,
+            type Goal,
+            type State,
+            Evaluator,
+        } from "@ai16z/eliza";
+        
+        const goalsTemplate = `TASK: Update Goal
+        Analyze the conversation and update the status of the goals based on the new information provided.
+        
+        # INSTRUCTIONS
+        
+        - Review the conversation and identify any progress towards the objectives of the current goals.
+        - Update the objectives if they have been completed or if there is new information about them.
+        - Update the status of the goal to 'DONE' if all objectives are completed.
+        - If no progress is made, do not change the status of the goal.
+        
+        # START OF ACTUAL TASK INFORMATION
+        
+        {{goals}}
+        {{recentMessages}}
+        
+        TASK: Analyze the conversation and update the status of the goals based on the new information provided. Respond with a JSON array of goals to update.
+        - Each item must include the goal ID, as well as the fields in the goal to update.
+        - For updating objectives, include the entire objectives array including unchanged fields.
+        - Only include goals which need to be updated.
+        - Goal status options are 'IN_PROGRESS', 'DONE' and 'FAILED'. If the goal is active it should always be 'IN_PROGRESS'.
+        - If the goal has been successfully completed, set status to DONE. If the goal cannot be completed, set status to FAILED.
+        - If those goal is still in progress, do not include the status field.
+        
+        Response format should be:
+        \`\`\`json
+        [
+          {
+            "id": <goal uuid>, // required
+            "status": "IN_PROGRESS" | "DONE" | "FAILED", // optional
+            "objectives": [ // optional
+              { "description": "Objective description", "completed": true | false },
+              { "description": "Objective description", "completed": true | false }
+            ] // NOTE: If updating objectives, include the entire objectives array including unchanged fields.
+          }
+        ]
+        \`\`\``;
+        
+        async function handler(
+            runtime: IAgentRuntime,
+            message: Memory,
+            state: State | undefined,
+            options: { [key: string]: unknown } = { onlyInProgress: true }
+        ): Promise<Goal[]> {
+            // get goals
+            let goalsData = await getGoals({
+                runtime,
+                roomId: message.roomId,
+                onlyInProgress: options.onlyInProgress as boolean,
+            });
+        
+            state = (await runtime.composeState(message)) as State;
+            const context = composeContext({
+                state,
+                template: runtime.character.templates?.goalsTemplate || goalsTemplate,
+            });
+        
+            // Request generateText from OpenAI to analyze conversation and suggest goal updates
+            const response = await generateText({
+                runtime,
+                context,
+                modelClass: ModelClass.LARGE,
+            });
+        
+            // Parse the JSON response to extract goal updates
+            const updates = parseJsonArrayFromText(response);
+        
+            // get goals
+            goalsData = await getGoals({
+                runtime,
+                roomId: message.roomId,
+                onlyInProgress: true,
+            });
+        
+            // Apply the updates to the goals
+            const updatedGoals = goalsData
+                .map((goal: Goal) => {
+                    const update = updates?.find((u) => u.id === goal.id);
+                    if (update) {
+                        const objectives = goal.objectives;
+        
+                        // for each objective in update.objectives, find the objective with the same description in 'objectives' and set the 'completed' value to the update.objectives value
+                        if (update.objectives) {
+                            for (const objective of objectives) {
+                                const updatedObjective = update.objectives.find(
+                                    (o: Objective) =>
+                                        o.description === objective.description
+                                );
+                                if (updatedObjective) {
+                                    objective.completed = updatedObjective.completed;
+                                }
+                            }
+                        }
+        
+                        return {
+                            ...goal,
+                            ...update,
+                            objectives: [
+                                ...goal.objectives,
+                                ...(update?.objectives || []),
+                            ],
+                        }; // Merging the update into the existing goal
+                    } else {
+                        console.warn("**** ID NOT FOUND");
+                    }
+                    return null; // No update for this goal
+                })
+                .filter(Boolean);
+        
+            // Update goals in the database
+            for (const goal of updatedGoals) {
+                const id = goal.id;
+                // delete id from goal
+                if (goal.id) delete goal.id;
+                await runtime.databaseAdapter.updateGoal({ ...goal, id });
+            }
+        
+            return updatedGoals; // Return updated goals for further processing or logging
+        }
+        
+        export const goalEvaluator: Evaluator = {
+            name: "UPDATE_GOAL",
+            similes: [
+                "UPDATE_GOALS",
+                "EDIT_GOAL",
+                "UPDATE_GOAL_STATUS",
+                "UPDATE_OBJECTIVES",
+            ],
+            validate: async (
+                runtime: IAgentRuntime,
+                message: Memory
+            ): Promise<boolean> => {
+                // Check if there are active goals that could potentially be updated
+                const goals = await getGoals({
+                    runtime,
+                    count: 1,
+                    onlyInProgress: true,
+                    roomId: message.roomId,
+                });
+                return goals.length > 0;
+            },
+            description:
+                "Analyze the conversation and update the status of the goals based on the new information provided.",
+            handler,
+            examples: [
+                {
+                    context: `Actors in the scene:
+          {{user1}}: An avid reader and member of a book club.
+          {{user2}}: The organizer of the book club.
+        
+          Goals:
+          - Name: Finish reading "War and Peace"
+            id: 12345-67890-12345-67890
+            Status: IN_PROGRESS
+            Objectives:
+              - Read up to chapter 20 by the end of the month
+              - Discuss the first part in the next meeting`,
+        
+                    messages: [
+                        {
+                            user: "{{user1}}",
+                            content: {
+                                text: "I've just finished chapter 20 of 'War and Peace'",
+                            },
+                        },
+                        {
+                            user: "{{user2}}",
+                            content: {
+                                text: "Were you able to grasp the complexities of the characters",
+                            },
+                        },
+                        {
+                            user: "{{user1}}",
+                            content: {
+                                text: "Yep. I've prepared some notes for our discussion",
+                            },
+                        },
+                    ],
+        
+                    outcome: `[
+                {
+                  "id": "12345-67890-12345-67890",
+                  "status": "DONE",
+                  "objectives": [
+                    { "description": "Read up to chapter 20 by the end of the month", "completed": true },
+                    { "description": "Prepare notes for the next discussion", "completed": true }
+                  ]
+                }
+              ]`,
+                },
+        
+                {
+                    context: `Actors in the scene:
+          {{user1}}: A fitness enthusiast working towards a marathon.
+          {{user2}}: A personal trainer.
+        
+          Goals:
+          - Name: Complete a marathon
+            id: 23456-78901-23456-78901
+            Status: IN_PROGRESS
+            Objectives:
+              - Increase running distance to 30 miles a week
+              - Complete a half-marathon as practice`,
+        
+                    messages: [
+                        {
+                            user: "{{user1}}",
+                            content: { text: "I managed to run 30 miles this week" },
+                        },
+                        {
+                            user: "{{user2}}",
+                            content: {
+                                text: "Impressive progress! How do you feel about the half-marathon next month?",
+                            },
+                        },
+                        {
+                            user: "{{user1}}",
+                            content: {
+                                text: "I feel confident. The training is paying off.",
+                            },
+                        },
+                    ],
+        
+                    outcome: `[
+                {
+                  "id": "23456-78901-23456-78901",
+                  "objectives": [
+                    { "description": "Increase running distance to 30 miles a week", "completed": true },
+                    { "description": "Complete a half-marathon as practice", "completed": false }
+                  ]
+                }
+              ]`,
+                },
+        
+                {
+                    context: `Actors in the scene:
+          {{user1}}: A student working on a final year project.
+          {{user2}}: The project supervisor.
+        
+          Goals:
+          - Name: Finish the final year project
+            id: 34567-89012-34567-89012
+            Status: IN_PROGRESS
+            Objectives:
+              - Submit the first draft of the thesis
+              - Complete the project prototype`,
+        
+                    messages: [
+                        {
+                            user: "{{user1}}",
+                            content: {
+                                text: "I've submitted the first draft of my thesis.",
+                            },
+                        },
+                        {
+                            user: "{{user2}}",
+                            content: {
+                                text: "Well done. How is the prototype coming along?",
+                            },
+                        },
+                        {
+                            user: "{{user1}}",
+                            content: {
+                                text: "It's almost done. I just need to finalize the testing phase.",
+                            },
+                        },
+                    ],
+        
+                    outcome: `[
+                {
+                  "id": "34567-89012-34567-89012",
+                  "objectives": [
+                    { "description": "Submit the first draft of the thesis", "completed": true },
+                    { "description": "Complete the project prototype", "completed": false }
+                  ]
+                }
+              ]`,
+                },
+        
+                {
+                    context: `Actors in the scene:
+                {{user1}}: A project manager working on a software development project.
+                {{user2}}: A software developer in the project team.
+        
+                Goals:
+                - Name: Launch the new software version
+                  id: 45678-90123-45678-90123
+                  Status: IN_PROGRESS
+                  Objectives:
+                    - Complete the coding for the new features
+                    - Perform comprehensive testing of the software`,
+        
+                    messages: [
+                        {
+                            user: "{{user1}}",
+                            content: {
+                                text: "How's the progress on the new features?",
+                            },
+                        },
+                        {
+                            user: "{{user2}}",
+                            content: {
+                                text: "We've encountered some unexpected challenges and are currently troubleshooting.",
+                            },
+                        },
+                        {
+                            user: "{{user1}}",
+                            content: {
+                                text: "Let's move on and cancel the task.",
+                            },
+                        },
+                    ],
+        
+                    outcome: `[
+                {
+                  "id": "45678-90123-45678-90123",
+                  "status": "FAILED"
+              ]`,
+                },
+            ],
+        };
+    fact.ts
+        import { composeContext } from "@ai16z/eliza";
+        import { generateObjectArray } from "@ai16z/eliza";
+        import { MemoryManager } from "@ai16z/eliza";
+        import {
+            ActionExample,
+            IAgentRuntime,
+            Memory,
+            ModelClass,
+            Evaluator,
+        } from "@ai16z/eliza";
+        
+        export const formatFacts = (facts: Memory[]) => {
+            const messageStrings = facts
+                .reverse()
+                .map((fact: Memory) => fact.content.text);
+            const finalMessageStrings = messageStrings.join("\n");
+            return finalMessageStrings;
+        };
+        
+        const factsTemplate =
+            // {{actors}}
+            `TASK: Extract Claims from the conversation as an array of claims in JSON format.
+        
+        # START OF EXAMPLES
+        These are an examples of the expected output of this task:
+        {{evaluationExamples}}
+        # END OF EXAMPLES
+        
+        # INSTRUCTIONS
+        
+        Extract any claims from the conversation that are not already present in the list of known facts above:
+        - Try not to include already-known facts. If you think a fact is already known, but you're not sure, respond with already_known: true.
+        - If the fact is already in the user's description, set in_bio to true
+        - If we've already extracted this fact, set already_known to true
+        - Set the claim type to 'status', 'fact' or 'opinion'
+        - For true facts about the world or the character that do not change, set the claim type to 'fact'
+        - For facts that are true but change over time, set the claim type to 'status'
+        - For non-facts, set the type to 'opinion'
+        - 'opinion' inlcudes non-factual opinions and also includes the character's thoughts, feelings, judgments or recommendations
+        - Include any factual detail, including where the user lives, works, or goes to school, what they do for a living, their hobbies, and any other relevant information
+        
+        Recent Messages:
+        {{recentMessages}}
+        
+        Response should be a JSON object array inside a JSON markdown block. Correct response format:
+        \`\`\`json
+        [
+          {"claim": string, "type": enum<fact|opinion|status>, in_bio: boolean, already_known: boolean },
+          {"claim": string, "type": enum<fact|opinion|status>, in_bio: boolean, already_known: boolean },
+          ...
+        ]
+        \`\`\``;
+        
+        async function handler(runtime: IAgentRuntime, message: Memory) {
+            const state = await runtime.composeState(message);
+        
+            const { agentId, roomId } = state;
+        
+            const context = composeContext({
+                state,
+                template: runtime.character.templates?.factsTemplate || factsTemplate,
+            });
+        
+            const facts = await generateObjectArray({
+                runtime,
+                context,
+                modelClass: ModelClass.LARGE,
+            });
+        
+            const factsManager = new MemoryManager({
+                runtime,
+                tableName: "facts",
+            });
+        
+            if (!facts) {
+                return [];
+            }
+        
+            // If the fact is known or corrupted, remove it
+            const filteredFacts = facts
+                .filter((fact) => {
+                    return (
+                        !fact.already_known &&
+                        fact.type === "fact" &&
+                        !fact.in_bio &&
+                        fact.claim &&
+                        fact.claim.trim() !== ""
+                    );
+                })
+                .map((fact) => fact.claim);
+        
+            for (const fact of filteredFacts) {
+                const factMemory = await factsManager.addEmbeddingToMemory({
+                    userId: agentId!,
+                    agentId,
+                    content: { text: fact },
+                    roomId,
+                    createdAt: Date.now(),
+                });
+        
+                await factsManager.createMemory(factMemory, true);
+        
+                await new Promise((resolve) => setTimeout(resolve, 250));
+            }
+            return filteredFacts;
+        }
+        
+        export const factEvaluator: Evaluator = {
+            name: "GET_FACTS",
+            similes: [
+                "GET_CLAIMS",
+                "EXTRACT_CLAIMS",
+                "EXTRACT_FACTS",
+                "EXTRACT_CLAIM",
+                "EXTRACT_INFORMATION",
+            ],
+            validate: async (
+                runtime: IAgentRuntime,
+        
+                message: Memory
+            ): Promise<boolean> => {
+                const messageCount = (await runtime.messageManager.countMemories(
+                    message.roomId
+                )) as number;
+        
+                const reflectionCount = Math.ceil(runtime.getConversationLength() / 2);
+        
+                return messageCount % reflectionCount === 0;
+            },
+            description:
+                "Extract factual information about the people in the conversation, the current events in the world, and anything else that might be important to remember.",
+            handler,
+            examples: [
+                {
+                    context: `Actors in the scene:
+        {{user1}}: Programmer and moderator of the local story club.
+        {{user2}}: New member of the club. Likes to write and read.
+        
+        Facts about the actors:
+        None`,
+                    messages: [
+                        {
+                            user: "{{user1}}",
+                            content: { text: "So where are you from" },
+                        },
+                        {
+                            user: "{{user2}}",
+                            content: { text: "I'm from the city" },
+                        },
+                        {
+                            user: "{{user1}}",
+                            content: { text: "Which city?" },
+                        },
+                        {
+                            user: "{{user2}}",
+                            content: { text: "Oakland" },
+                        },
+                        {
+                            user: "{{user1}}",
+                            content: {
+                                text: "Oh, I've never been there, but I know it's in California",
+                            },
+                        },
+                    ] as ActionExample[],
+                    outcome: `{ "claim": "{{user1}} is from Oakland", "type": "fact", "in_bio": false, "already_known": false },`,
+                },
+                {
+                    context: `Actors in the scene:
+        {{user1}}: Athelete and cyclist. Worked out every day for a year to prepare for a marathon.
+        {{user2}}: Likes to go to the beach and shop.
+        
+        Facts about the actors:
+        {{user1}} and {{user2}} are talking about the marathon
+        {{user1}} and {{user2}} have just started dating`,
+                    messages: [
+                        {
+                            user: "{{user1}}",
+                            content: {
+                                text: "I finally completed the marathon this year!",
+                            },
+                        },
+                        {
+                            user: "{{user2}}",
+                            content: { text: "Wow! How long did it take?" },
+                        },
+                        {
+                            user: "{{user1}}",
+                            content: { text: "A little over three hours." },
+                        },
+                        {
+                            user: "{{user1}}",
+                            content: { text: "I'm so proud of myself." },
+                        },
+                    ] as ActionExample[],
+                    outcome: `Claims:
+        json\`\`\`
+        [
+          { "claim": "Alex just completed a marathon in just under 4 hours.", "type": "fact", "in_bio": false, "already_known": false },
+          { "claim": "Alex worked out 2 hours a day at the gym for a year.", "type": "fact", "in_bio": true, "already_known": false },
+          { "claim": "Alex is really proud of himself.", "type": "opinion", "in_bio": false, "already_known": false }
+        ]
+        \`\`\`
+        `,
+                },
+                {
+                    context: `Actors in the scene:
+        {{user1}}: Likes to play poker and go to the park. Friends with Eva.
+        {{user2}}: Also likes to play poker. Likes to write and read.
+        
+        Facts about the actors:
+        Mike and Eva won a regional poker tournament about six months ago
+        Mike is married to Alex
+        Eva studied Philosophy before switching to Computer Science`,
+                    messages: [
+                        {
+                            user: "{{user1}}",
+                            content: {
+                                text: "Remember when we won the regional poker tournament last spring",
+                            },
+                        },
+                        {
+                            user: "{{user2}}",
+                            content: {
+                                text: "That was one of the best days of my life",
+                            },
+                        },
+                        {
+                            user: "{{user1}}",
+                            content: {
+                                text: "It really put our poker club on the map",
+                            },
+                        },
+                    ] as ActionExample[],
+                    outcome: `Claims:
+        json\`\`\`
+        [
+          { "claim": "Mike and Eva won the regional poker tournament last spring", "type": "fact", "in_bio": false, "already_known": true },
+          { "claim": "Winning the regional poker tournament put the poker club on the map", "type": "opinion", "in_bio": false, "already_known": false }
+        ]
+        \`\`\``,
+                },
+            ],
+        };
+    index.ts
+        export * from "./fact.ts";
+        export * from "./goal.ts";
+providers/
+    time.ts
+        import { IAgentRuntime, Memory, Provider, State } from "@ai16z/eliza";
+        
+        const timeProvider: Provider = {
+            get: async (_runtime: IAgentRuntime, _message: Memory, _state?: State) => {
+                const currentDate = new Date();
+        
+                // Get UTC time since bots will be communicating with users around the global
+                const options = {
+                    timeZone: "UTC",
+                    dateStyle: "full" as const,
+                    timeStyle: "long" as const,
+                };
+                const humanReadable = new Intl.DateTimeFormat("en-US", options).format(
+                    currentDate
+                );
+                return `The current date and time is ${humanReadable}. Please use this as your reference for any time-based operations or responses.`;
+            },
+        };
+        export { timeProvider };
+    index.ts
+        export * from "./time.ts";
+        export * from "./facts.ts";
+        export * from "./racing.ts";
+    racing.ts
+        // src/providers/racing.ts
+        
+        import { IAgentRuntime, Provider } from "@ai16z/eliza";
+        import fetch from "node-fetch";
+        import { addDays, format, parseISO } from "date-fns";
+        
+        /**
+         * Interfaces for data structures
+         * Explanation:
+         * These interfaces define the shape of data returned by the API calls.
+         */
+        interface Meet {
+          meet_id: string;
+          date: string;
+          // Additional fields as needed from the meet object
+        }
+        
+        interface EntriesResponse {
+          // Structure based on API response; adapt as needed
+          entries: any[];
+        }
+        
+        interface ResultsResponse {
+          // Structure based on API response; adapt as needed
+          results: any[];
+          total?: number;
+        }
+        
+        interface DriverStanding {
+          name: string;
+          points: number;
+        }
+        
+        interface RaceResult {
+          position: number;
+          driver: string;
+          team: string;
+        }
+        
+        interface NextRaceInfo {
+          name: string;
+          date: string;
+          circuit: string;
+        }
+        
+        interface RacingAPIParams {
+          [key: string]: string | number;
+        }
+        
+        /**
+         * buildHeaders:
+         * Explanation:
+         * Constructs headers including Basic Auth for the racing API.
+         */
+        function buildHeaders(runtime: IAgentRuntime): Record<string, string> {
+          const username = runtime.getSetting("RACING_API_USERNAME") || "";
+          const password = runtime.getSetting("RACING_API_PASSWORD") || "";
+          const base64Creds = Buffer.from(`${username}:${password}`).toString("base64");
+          return {
+            "Authorization": `Basic ${base64Creds}`,
+            "Accept": "application/json",
+            "User-Agent": "Eliza-RacerPlugin/1.0"
+          };
+        }
+        
+        /**
+         * fetchJSON:
+         * Explanation:
+         * Generic helper to fetch JSON from the given URL with optional params.
+         */
+        async function fetchJSON(runtime: IAgentRuntime, url: string, params: RacingAPIParams = {}): Promise<any> {
+          const headers = buildHeaders(runtime);
+          const urlObj = new URL(url);
+          Object.entries(params).forEach(([key, val]) => urlObj.searchParams.append(key, val.toString()));
+        
+          const resp = await fetch(urlObj.toString(), { headers });
+          if (!resp.ok) {
+            console.error(`Request to ${urlObj.toString()} failed: ${resp.status} ${resp.statusText}`);
+            return null;
+          }
+          return resp.json();
+        }
+        
+        /**
+         * getMeetsForDate:
+         * Explanation:
+         * Fetches meets for a given date. Returns an array of Meet objects or empty if none found.
+         */
+        async function getMeetsForDate(runtime: IAgentRuntime, date: string): Promise<Meet[]> {
+          const data = await fetchJSON(runtime, "https://api.theracingapi.com/v1/north-america/meets", {
+            start_date: date,
+            end_date: date
+          });
+          if (!data || !Array.isArray(data.meets)) {
+            return [];
+          }
+          return data.meets as Meet[];
+        }
+        
+        /**
+         * getMeetEntries:
+         * Explanation:
+         * Fetch entries for a single meet_id from the racing API.
+         * Returns EntriesResponse or null if none found.
+         */
+        async function getMeetEntries(runtime: IAgentRuntime, meet_id: string): Promise<EntriesResponse | null> {
+          const data = await fetchJSON(runtime, `https://api.theracingapi.com/v1/north-america/meets/${meet_id}/entries`);
+          return data;
+        }
+        
+        /**
+         * getMeetResults:
+         * Explanation:
+         * Fetch results for a single meet_id.
+         * Returns ResultsResponse or null if none found.
+         */
+        async function getMeetResults(runtime: IAgentRuntime, meet_id: string): Promise<ResultsResponse | null> {
+          const data = await fetchJSON(runtime, `https://api.theracingapi.com/v1/north-america/meets/${meet_id}/results`);
+          return data;
+        }
+        
+        /**
+         * getPaginatedResults:
+         * Explanation:
+         * An example of fetching results with pagination over a date range.
+         * This function repeatedly calls the API until all results are fetched.
+         */
+        async function getPaginatedResults(runtime: IAgentRuntime, start_date: string, end_date: string) {
+          let limit = 50;
+          let skip = 0;
+          let total = 0;
+          let allResults: any[] = [];
+        
+          do {
+            await new Promise(r => setTimeout(r, 500)); // rate limit delay
+            const data = await fetchJSON(runtime, "https://api.theracingapi.com/v1/results", {
+              start_date,
+              end_date,
+              limit,
+              skip
+            });
+        
+            if (!data || !data.results) break;
+            allResults = allResults.concat(data.results);
+            total = data.total || 0;
+            skip += limit;
+          } while (skip < total);
+        
+          return allResults;
+        }
+        
+        /**
+         * getDataForDateRange:
+         * Explanation:
+         * Fetches data for a range of dates by iterating day-by-day.
+         * For each date, fetches meets, then entries and results for each meet.
+         * Useful for bulk operations.
+         */
+        async function getDataForDateRange(runtime: IAgentRuntime, start: string, end: string) {
+          const startDate = parseISO(start);
+          const endDate = parseISO(end);
+          let current = startDate;
+        
+          while (current <= endDate) {
+            const dateStr = format(current, "yyyy-MM-dd");
+            await new Promise(r => setTimeout(r, 500)); // rate limit delay before each day's request
+            const meets = await getMeetsForDate(runtime, dateStr);
+            console.log(`Fetched ${meets.length} meets for ${dateStr}`);
+        
+            for (const meet of meets) {
+              await new Promise(r => setTimeout(r, 500));
+              const entries = await getMeetEntries(runtime, meet.meet_id);
+              console.log(`Fetched entries for meet_id ${meet.meet_id}:`, entries);
+        
+              await new Promise(r => setTimeout(r, 500));
+              const results = await getMeetResults(runtime, meet.meet_id);
+              console.log(`Fetched results for meet_id ${meet.meet_id}:`, results);
+        
+              // Process or store as needed
+            }
+        
+            current = addDays(current, 1);
+          }
+        }
+        
+        /**
+         * The following three functions (getRaceResults, getDriverStandings, getNextRace)
+         * are required by your actions/racing.ts file. They were not previously defined or exported.
+         * We will define them now, returning mock data or calling some hypothetical API endpoint.
+         * Integrate real logic as needed.
+         */
+        
+        /**
+         * getRaceResults:
+         * Explanation:
+         * Given a series (like 'f1') and raceId (like 'last'), fetch results.
+         * For now, return a mock array of RaceResult objects. Integrate real API logic as needed.
+         */
+        async function getRaceResults(_runtime: IAgentRuntime, series: string, raceId: string): Promise<RaceResult[]> {
+          console.log(`Mock getRaceResults called with series="${series}" raceId="${raceId}"`);
+          // Return mock data. Replace with real API call logic as needed.
+          return [
+            { position: 1, driver: "Max Verstappen", team: "Red Bull Racing" },
+            { position: 2, driver: "Lewis Hamilton", team: "Mercedes" }
+          ];
+        }
+        
+        /**
+         * getDriverStandings:
+         * Explanation:
+         * Given a series, returns driver standings.
+         * For now, return mock data. Integrate real API call as needed.
+         */
+        async function getDriverStandings(_runtime: IAgentRuntime, series: string): Promise<DriverStanding[]> {
+          console.log(`Mock getDriverStandings called with series="${series}"`);
+          return [
+            { name: "Max Verstappen", points: 300 },
+            { name: "Charles Leclerc", points: 250 },
+            { name: "Lewis Hamilton", points: 200 }
+          ];
+        }
+        
+        /**
+         * getNextRace:
+         * Explanation:
+         * Given a series, returns the next race info.
+         * For now, return mock data. Integrate real API call as needed.
+         */
+        async function getNextRace(_runtime: IAgentRuntime, series: string): Promise<NextRaceInfo | null> {
+          console.log(`Mock getNextRace called with series="${series}"`);
+          // Return a mock upcoming race. Replace with real API logic when available.
+          return {
+            name: "Monaco Grand Prix",
+            date: "2023-08-15",
+            circuit: "Circuit de Monaco"
+          };
+        }
+        
+        /**
+         * racingAPIProvider:
+         * A provider that could be integrated with the rest of your system.
+         * Currently just returns "" and logs a message.
+         */
+        export const racingAPIProvider: Provider = {
+          async get() {
+            console.log("racingAPIProvider.get() called");
+            return "";
+          }
+        };
+        
+        /**
+         * Exporting all helper functions and mocks:
+         * Explanation:
+         * Now we explicitly export all the functions we created, including getRaceResults, getDriverStandings, and getNextRace,
+         * so that actions/racing.ts can import them without errors.
+         */
+        export {
+          getMeetsForDate,
+          getMeetEntries,
+          getMeetResults,
+          getPaginatedResults,
+          getDataForDateRange,
+          getRaceResults,
+          getDriverStandings,
+          getNextRace
+        };
+    facts.ts
+        import {
+            embed,
+            MemoryManager,
+            formatMessages,
+            AgentRuntime as IAgentRuntime,
+        } from "@ai16z/eliza";
+        import type { Memory, Provider, State } from "@ai16z/eliza";
+        import { formatFacts } from "../evaluators/fact.ts";
+        
+        const factsProvider: Provider = {
+            get: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
+                const recentMessagesData = state?.recentMessagesData?.slice(-10);
+        
+                const recentMessages = formatMessages({
+                    messages: recentMessagesData,
+                    actors: state?.actorsData,
+                });
+        
+                const _embedding = await embed(runtime, recentMessages);
+        
+                const memoryManager = new MemoryManager({
+                    runtime,
+                    tableName: "facts",
+                });
+        
+                const relevantFacts = [];
+                //  await memoryManager.searchMemoriesByEmbedding(
+                //     embedding,
+                //     {
+                //         roomId: message.roomId,
+                //         count: 10,
+                //         agentId: runtime.agentId,
+                //     }
+                // );
+        
+                const recentFactsData = await memoryManager.getMemories({
+                    roomId: message.roomId,
+                    count: 10,
+                    start: 0,
+                    end: Date.now(),
+                });
+        
+                // join the two and deduplicate
+                const allFacts = [...relevantFacts, ...recentFactsData].filter(
+                    (fact, index, self) =>
+                        index === self.findIndex((t) => t.id === fact.id)
+                );
+        
+                if (allFacts.length === 0) {
+                    return "";
+                }
+        
+                const formattedFacts = formatFacts(allFacts);
+        
+                return "Key facts that {{agentName}} knows:\n{{formattedFacts}}"
+                    .replace("{{agentName}}", runtime.character.name)
+                    .replace("{{formattedFacts}}", formattedFacts);
+            },
+        };
+        
+        export { factsProvider };

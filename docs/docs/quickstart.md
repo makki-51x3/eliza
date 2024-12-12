@@ -187,7 +187,7 @@ pnpm start
 ### Run Multiple Agents
 
 ```bash
-pnpm start --characters="characters/trump.character.json,characters/tate.character.json"
+pnpm start --characters="characters/Racer.character.json"
 ```
 
 ## Common Issues & Solutions
