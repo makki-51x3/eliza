@@ -144,7 +144,7 @@ export const getHorseAnalysisAction: Action = {
     response += `Distances:\n`;
     // Show a summary of each distance record
     data.distances.slice(0, 5).forEach((distObj: any) => {
-      response += `- ${distObj.dist_f} furlongs (${distObj.dist_m}m): ${distObj.runners} runs, ${distObj["1st"]} wins, win% ${(distObj.win_ * 100).toFixed(1)}%\n`;
+      response += `- ${distObj.dist_f} furlongs (${distObj.dist_m}m): ${distObj.runners} runs, ${distObj["1st"]} wins, win% ${(distObj["win_%"] * 100).toFixed(1)}%\n`;
     });
     if (data.distances.length > 5) {
       response += `(Showing first 5 distance summaries out of ${data.distances.length})`;
