@@ -85,7 +85,7 @@ async function fetchJSON(runtime: IAgentRuntime, url: string, params: RacingAPIP
  * Explanation:
  * Fetches meets for a given date. Returns an array of Meet objects or empty if none found.
  */
-async function getMeetsForDate(runtime: IAgentRuntime, date: string): Promise<Meet[]> {
+export async function getMeetsForDate(runtime: IAgentRuntime, date: string): Promise<Meet[]> {
   const data = await fetchJSON(runtime, "https://api.theracingapi.com/v1/north-america/meets", {
     start_date: date,
     end_date: date
@@ -102,7 +102,7 @@ async function getMeetsForDate(runtime: IAgentRuntime, date: string): Promise<Me
  * Fetch entries for a single meet_id from the racing API.
  * Returns EntriesResponse or null if none found.
  */
-async function getMeetEntries(runtime: IAgentRuntime, meet_id: string): Promise<EntriesResponse | null> {
+export async function getMeetEntries(runtime: IAgentRuntime, meet_id: string): Promise<EntriesResponse | null> {
   const data = await fetchJSON(runtime, `https://api.theracingapi.com/v1/north-america/meets/${meet_id}/entries`);
   return data;
 }
@@ -113,7 +113,7 @@ async function getMeetEntries(runtime: IAgentRuntime, meet_id: string): Promise<
  * Fetch results for a single meet_id.
  * Returns ResultsResponse or null if none found.
  */
-async function getMeetResults(runtime: IAgentRuntime, meet_id: string): Promise<ResultsResponse | null> {
+export async function getMeetResults(runtime: IAgentRuntime, meet_id: string): Promise<ResultsResponse | null> {
   const data = await fetchJSON(runtime, `https://api.theracingapi.com/v1/north-america/meets/${meet_id}/results`);
   return data;
 }
@@ -124,7 +124,7 @@ async function getMeetResults(runtime: IAgentRuntime, meet_id: string): Promise<
  * An example of fetching results with pagination over a date range.
  * This function repeatedly calls the API until all results are fetched.
  */
-async function getPaginatedResults(runtime: IAgentRuntime, start_date: string, end_date: string) {
+export async function getPaginatedResults(runtime: IAgentRuntime, start_date: string, end_date: string) {
   let limit = 50;
   let skip = 0;
   let total = 0;
@@ -155,7 +155,7 @@ async function getPaginatedResults(runtime: IAgentRuntime, start_date: string, e
  * For each date, fetches meets, then entries and results for each meet.
  * Useful for bulk operations.
  */
-async function getDataForDateRange(runtime: IAgentRuntime, start: string, end: string) {
+export async function getDataForDateRange(runtime: IAgentRuntime, start: string, end: string) {
   const startDate = parseISO(start);
   const endDate = parseISO(end);
   let current = startDate;
@@ -195,7 +195,7 @@ async function getDataForDateRange(runtime: IAgentRuntime, start: string, end: s
  * Given a series (like 'f1') and raceId (like 'last'), fetch results.
  * For now, return a mock array of RaceResult objects. Integrate real API logic as needed.
  */
-async function getRaceResults(_runtime: IAgentRuntime, series: string, raceId: string): Promise<RaceResult[]> {
+export async function getRaceResults(_runtime: IAgentRuntime, series: string, raceId: string): Promise<RaceResult[]> {
   console.log(`Mock getRaceResults called with series="${series}" raceId="${raceId}"`);
   // Return mock data. Replace with real API call logic as needed.
   return [
@@ -210,7 +210,7 @@ async function getRaceResults(_runtime: IAgentRuntime, series: string, raceId: s
  * Given a series, returns driver standings.
  * For now, return mock data. Integrate real API call as needed.
  */
-async function getDriverStandings(_runtime: IAgentRuntime, series: string): Promise<DriverStanding[]> {
+export async function getDriverStandings(_runtime: IAgentRuntime, series: string): Promise<DriverStanding[]> {
   console.log(`Mock getDriverStandings called with series="${series}"`);
   return [
     { name: "Max Verstappen", points: 300 },
@@ -225,7 +225,7 @@ async function getDriverStandings(_runtime: IAgentRuntime, series: string): Prom
  * Given a series, returns the next race info.
  * For now, return mock data. Integrate real API call as needed.
  */
-async function getNextRace(_runtime: IAgentRuntime, series: string): Promise<NextRaceInfo | null> {
+export async function getNextRace(_runtime: IAgentRuntime, series: string): Promise<NextRaceInfo | null> {
   console.log(`Mock getNextRace called with series="${series}"`);
   // Return a mock upcoming race. Replace with real API logic when available.
   return {
@@ -246,21 +246,3 @@ export const racingAPIProvider: Provider = {
     return "";
   }
 };
-
-/**
- * Exporting all helper functions and mocks:
- * Explanation:
- * Now we explicitly export all the functions we created, including getRaceResults, getDriverStandings, and getNextRace,
- * so that actions/racing.ts can import them without errors.
- */
-export {
-  getMeetsForDate,
-  getMeetEntries,
-  getMeetResults,
-  getPaginatedResults,
-  getDataForDateRange,
-  getRaceResults,
-  getDriverStandings,
-  getNextRace
-};
-
