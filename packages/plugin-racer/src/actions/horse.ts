@@ -3,7 +3,7 @@ import fetch from "node-fetch"; // Assuming node-fetch is used; already used in 
 import { buildHeaders } from "../providers/racing"; // If you export buildHeaders from racing.ts or copy a similar helper
 
 // Helper: parse horse name from user text
-function extractHorseName(text: string): string | null {
+export function extractHorseName(text: string): string | null {
   // Very naive extraction: look for a phrase like "horse named <name>" or just after the word 'horse'
   // A more robust approach: maybe user says: "Show me details for the horse Thunderbolt"
   // We'll try to find "horse" and then the following words as a name.
@@ -20,26 +20,16 @@ function extractHorseName(text: string): string | null {
   const nameParts = words.slice(horseIndex + 1);
   // remove filler words like 'named', 'called'
   const filtered = nameParts.filter(w => w.toLowerCase() !== "named" && w.toLowerCase() !== "called");
-  const horseName = filtered.join(" ").trim();
-  return horseName.length > 0 ? horseName : null;
+  return filtered.join(" ").trim() || null;
 }
 
 // Helper: search horse by name
-async function searchHorseByName(runtime: IAgentRuntime, horseName: string): Promise<string | null> {
-  const username = runtime.getSetting("RACING_API_USERNAME") || "";
-  const password = runtime.getSetting("RACING_API_PASSWORD") || "";
-  const base64Creds = Buffer.from(`${username}:${password}`).toString("base64");
-
+export async function searchHorseByName(runtime: IAgentRuntime, horseName: string): Promise<string | null> {
+  const headers = buildHeaders(runtime);
   const url = new URL("https://api.theracingapi.com/v1/horses/search");
   url.searchParams.append("name", horseName);
 
-  const resp = await fetch(url.toString(), {
-    headers: {
-      "Authorization": `Basic ${base64Creds}`,
-      "Accept": "application/json"
-    }
-  });
-
+  const resp = await fetch(url.toString(), { headers });
   if (!resp.ok) {
     console.error(`Horse search failed: ${resp.status} ${resp.statusText}`);
     return null;
@@ -50,36 +40,19 @@ async function searchHorseByName(runtime: IAgentRuntime, horseName: string): Pro
     return null;
   }
 
-  // Return the first horse_id
-  const horse = data.search_results[0];
-  return horse.id;
+  return data.search_results[0].id; // Return the first horse_id
 }
 
-// Helper: get horse details (standard endpoint)
-async function getHorseDetails(runtime: IAgentRuntime, horseId: string): Promise<any> {
-  const username = runtime.getSetting("RACING_API_USERNAME") || "";
-  const password = runtime.getSetting("RACING_API_PASSWORD") || "";
-  const base64Creds = Buffer.from(`${username}:${password}`).toString("base64");
-
-  // Try pro endpoint first, fallback to standard if not found
+// Helper: get horse details (standard or pro endpoint)
+export async function getHorseDetails(runtime: IAgentRuntime, horseId: string): Promise<any> {
+  const headers = buildHeaders(runtime);
   let url = `https://api.theracingapi.com/v1/horses/${horseId}/pro`;
-  let resp = await fetch(url, {
-    headers: {
-      "Authorization": `Basic ${base64Creds}`,
-      "Accept": "application/json"
-    }
-  });
 
+  let resp = await fetch(url, { headers });
   if (!resp.ok) {
-    // fallback to standard
-    console.log("Pro endpoint not available, falling back to standard endpoint for horse details.");
+    console.log("Pro endpoint not available, falling back to standard endpoint.");
     url = `https://api.theracingapi.com/v1/horses/${horseId}/standard`;
-    resp = await fetch(url, {
-      headers: {
-        "Authorization": `Basic ${base64Creds}`,
-        "Accept": "application/json"
-      }
-    });
+    resp = await fetch(url, { headers });
 
     if (!resp.ok) {
       console.error(`Fetching horse details failed: ${resp.status} ${resp.statusText}`);
@@ -87,10 +60,10 @@ async function getHorseDetails(runtime: IAgentRuntime, horseId: string): Promise
     }
   }
 
-  const data = await resp.json();
-  return data;
+  return await resp.json();
 }
 
+// Main Action: Get Horse Details
 export const getHorseDetailsAction: Action = {
   name: "GET_HORSE_DETAILS",
   description: "Fetches details about a specific horse by name.",
@@ -106,18 +79,17 @@ export const getHorseDetailsAction: Action = {
     const horseName = extractHorseName(text);
 
     if (!horseName) {
-      return callback({ text: "I’m sorry, I couldn’t determine the horse’s name. Could you please specify the horse name?" }, []);
+      return callback({ text: "I couldn’t determine the horse’s name. Could you clarify?" }, []);
     }
 
-    // Search for horse
     const horseId = await searchHorseByName(runtime, horseName);
     if (!horseId) {
-      return callback({ text: `I couldn’t find any horse matching the name "${horseName}". Please try another name.` }, []);
+      return callback({ text: `I couldn’t find a horse named "${horseName}". Please try another name.` }, []);
     }
 
     const details = await getHorseDetails(runtime, horseId);
     if (!details) {
-      return callback({ text: "I’m sorry, I cannot retrieve the horse details at the moment." }, []);
+      return callback({ text: "I couldn’t retrieve details for that horse at the moment." }, []);
     }
 
     // Format response

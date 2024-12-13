@@ -9,6 +9,7 @@ import { goalEvaluator } from "./evaluators/goal.js";
 import { timeProvider } from "./providers/time.js";
 import { factsProvider } from "./providers/facts.js";
 import { racingAPIProvider } from "./providers/racing.js";
+import { getHorseResultsAction, getHorseAnalysisAction } from "./actions/horseAnalysisResults.js";
 
 /**
  * The racerPlugin integrates all actions, evaluators, and providers into a cohesive whole.
@@ -26,7 +27,9 @@ const racerPlugin: Plugin = {
     getMeetsForDateAction,
     getMeetDetailsAction,
     getDataForDateRangeAction,
-    getHorseDetailsAction
+    getHorseDetailsAction,
+    getHorseResultsAction,
+    getHorseAnalysisAction
   ],
   evaluators: [
     factEvaluator,
