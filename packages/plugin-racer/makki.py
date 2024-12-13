@@ -47,10 +47,10 @@ def write_tree_with_content(output_file, root_dir, ignore_list):
 
 # Specify the root directory, output file, and items to ignore
 # root_directory = '/home/makki/Desktop/ELIZA_MULTIAGENT_FRAMEWORK/eliza/packages/plugin-racer/'
-root_directory = '/home/makki/Desktop/ELIZA_MULTIAGENT_FRAMEWORK/eliza/packages/plugin-racer/src/'
+root_directory = '/home/makki/Desktop/ELIZA_MULTIAGENT_FRAMEWORK/eliza/packages/plugin-racer/src/actions'
 
-output_text_file = 'directory_tree.txt'
-ignore_list = ['makki.py','directory_tree.txt','node_modules','.turbo','dist','.npmignore']
+output_text_file = 'makki_directory_tree.txt'
+ignore_list = ['makki.py','makki_directory_tree.txt','node_modules','.turbo','dist','.npmignore']
 
 # Run the function
 write_tree_with_content(output_text_file, root_directory, ignore_list)

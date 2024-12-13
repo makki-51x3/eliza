@@ -11,10 +11,9 @@ import { racingAPIProvider } from "./providers/racing.js";
 // Import all actions
 import { noneAction } from "./actions/none.js";
 import { getRaceResultsAction, getDriverStandingsAction, getNextRaceAction } from "./actions/racing.js";
-import { getHorseDetailsAction } from "./actions/horse.js";
 import { getMeetsForDateAction, getMeetDetailsAction, getDataForDateRangeAction } from "./actions/extendedRacing.js";
 
-import { getHorseResultsAction, getHorseAnalysisAction } from "./actions/horseAnalysisResults.js";
+import { getHorseDetailsAction, getHorseResultsAction, getHorseAnalysisAction } from "./actions/horse.js";
 import { getTrainerDetailsAction, getTrainerResultsAction, getTrainerAnalysisAction } from "./actions/trainer";
 import { getJockeyDetailsAction, getJockeyResultsAction, getJockeyAnalysisAction } from "./actions/jockey";
 import { getOwnerDetailsAction, getOwnerResultsAction, getOwnerAnalysisAction } from "./actions/owner.js";
